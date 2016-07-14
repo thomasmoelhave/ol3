@@ -278,6 +278,78 @@ ol.source.TileImage.prototype.getTile = function(z, x, y, pixelRatio, projection
   }
 };
 
+/**
+ * @inheritDoc
+ */
+ol.source.TileImage.prototype.getInterimTile = function(head) {
+  var /** @type {ol.Tile} */ tile = head;
+  if (!head.interimTile) {
+    //empty chain
+    return head;
+  }
+  tile = head.interimTile;
+
+  //find the first loaded tile and return it. Since the chain is sorted in decreasing
+  //sequence number, this is also the newest loaded tile.
+  do {
+    if (tile.getState() == ol.Tile.State.LOADED) {
+      return /** @type {!ol.Tile} */ (tile);
+    }
+    tile = /** @type {ol.Tile} */ (tile.interimTile);
+  } while (tile);
+
+  //we found no loaded tile, just return the head again
+  return head;
+};
+
+/**
+ * Goes through the chain of interim tiles starting at the provided tile and discards
+ * sections of the chain that are no longer relevant.
+ * @param {ol.Tile} tile Head of chain of interim tiles.
+ * @return {void}
+ */
+ol.source.TileImage.prototype.refreshInterimChain = function(tile) {
+  var /** @type {ol.Tile} */ head = tile;
+
+  if (!head.interimTile) {
+    return;
+  }
+
+  tile = head.interimTile;
+  var prev = head;
+
+  var discard = function(prev, tile) {
+    prev.interimTile = tile.interimTile;
+    return prev;
+  };
+  var step = function(prev,tile) {
+    return tile;
+  };
+
+  do {
+    goog.DEBUG && console.assert(tile.getSequenceNumber() < prev.getSequenceNumber(), 'Incorrect order of interim tiles.');
+
+    if (tile.getState() == ol.Tile.State.LOADED) {
+      //we have a loaded tile, we can discard the rest of the list
+      //TODO: in an ideal world we would could abort any LOADING tile request
+      //with a sequence number lower that of this tile (e.g. any loading
+      //tile following this entry in the chain)
+      tile.interimTile = null;
+      break;
+    } else if (tile.getState() == ol.Tile.State.LOADING) {
+      //keep this LOADING tile any loaded tiles later in the chain are
+      //older than this tile (lower seq num), so we're still interested in the request
+      prev = step(prev,tile);
+    } else if (tile.getState() == ol.Tile.State.IDLE) {
+      //the head of the list is the most current tile, we don't need
+      //to start any other requests for this chain
+      prev = discard(prev,tile);
+    } else {
+      prev = step(prev,tile);
+    }
+    tile = prev.interimTile;
+  } while (tile);
+};
 
 /**
  * @param {number} z Tile coordinate z.
@@ -302,26 +374,16 @@ ol.source.TileImage.prototype.getTileInternal = function(z, x, y, pixelRatio, pr
       // can use it then we use it. Otherwise we create a new tile.  In both
       // cases we attempt to assign an interim tile to the new tile.
       var /** @type {ol.Tile} */ interimTile = tile;
-      if (tile.interimTile && tile.interimTile.key == key) {
-        goog.DEBUG && console.assert(tile.interimTile.getState() == ol.Tile.State.LOADED);
-        goog.DEBUG && console.assert(tile.interimTile.interimTile === null);
-        tile = tile.interimTile;
-        if (interimTile.getState() == ol.Tile.State.LOADED) {
-          tile.interimTile = interimTile;
-        }
+      tile = this.createTile_(z, x, y, pixelRatio, projection, key);
+
+      //make the new tile the head of the list,
+      if (interimTile.getState() == ol.Tile.State.IDLE) {
+        //the old tile hasn't begun loading yet, and is not outdated, so we can simply discard it
+        tile.interimTile = interimTile.interimTile;
       } else {
-        tile = this.createTile_(z, x, y, pixelRatio, projection, key);
-        if (interimTile.getState() == ol.Tile.State.LOADED) {
-          tile.interimTile = interimTile;
-        } else if (interimTile.interimTile &&
-            interimTile.interimTile.getState() == ol.Tile.State.LOADED) {
-          tile.interimTile = interimTile.interimTile;
-          interimTile.interimTile = null;
-        }
+        tile.interimTile = interimTile;
       }
-      if (tile.interimTile) {
-        tile.interimTile.interimTile = null;
-      }
+      this.refreshInterimChain(tile);
       this.tileCache.replace(tileCoordKey, tile);
     }
   }

@@ -5,7 +5,9 @@ goog.require('ol.layer.Tile');
 goog.require('ol.proj');
 goog.require('ol.source.OSM');
 goog.require('ol.source.WMTS');
+goog.require('ol.source.TileDebug');
 goog.require('ol.tilegrid.WMTS');
+goog.require('goog.functions');
 
 
 // create the WMTS tile grid in the google projection
@@ -54,6 +56,13 @@ var map = new ol.Map({
     new ol.layer.Tile({
       source: new ol.source.OSM()
     }),
+    /* new ol.layer.Tile({
+            source: new ol.source.TileDebug({
+              opacity: 0.5,
+              projection: projection,
+              tileGrid: wmtsSource.getTileGrid()
+            })
+          }),*/
     new ol.layer.Tile({
       opacity: 0.5,
       source: wmtsSource
@@ -68,6 +77,11 @@ var updateSourceDimension = function(source, sliderVal) {
 
 updateSourceDimension(wmtsSource, 10);
 
-document.getElementById('slider').addEventListener('input', function() {
-  updateSourceDimension(wmtsSource, this.value);
-});
+
+//throttle the slider updates a bit to allow the map to load for intermediate
+//slider values when dragging
+var throttleDelay = 200;
+document.getElementById('slider').addEventListener('input',
+  goog.functions.throttle(function(event) {
+    updateSourceDimension(wmtsSource, event.target.value);
+  },throttleDelay));
