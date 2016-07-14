@@ -139,8 +139,8 @@ ol.renderer.canvas.TileLayer.prototype.prepareFrame = function(
   for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
     for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
       tile = tileSource.getTile(z, x, y, pixelRatio, projection);
-      if (!drawableTile(tile) && tile.interimTile) {
-        tile = tile.interimTile;
+      if (!drawableTile(tile)) {
+        tile = /** @type {!ol.Tile} */ (tileSource.getInterimTile(tile));
       }
       if (drawableTile(tile)) {
         tilesToDrawByZ[z][tile.tileCoord.toString()] = tile;

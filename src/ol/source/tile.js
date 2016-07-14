@@ -205,6 +205,17 @@ ol.source.Tile.prototype.getTile = function(z, x, y, pixelRatio, projection) {};
 
 
 /**
+ * @abstract
+ * Get the tile most suitable for rendering using the chain of interim tiles.
+ * This corresponds to the loaded tile with the highest sequence number in the normal case.
+ * @param {!ol.Tile} tile Most recent tile (head of the interim tile list)
+ * @return {!ol.Tile} Best tile for rendering at this location.
+ *
+ */
+ol.source.Tile.prototype.getInterimTile = function(tile) {
+};
+
+/**
  * Return the tile grid of the tile source.
  * @return {ol.tilegrid.TileGrid} Tile grid.
  * @api stable

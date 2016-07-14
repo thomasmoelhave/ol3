@@ -5,6 +5,7 @@ goog.require('ol.events');
 goog.require('ol.events.EventTarget');
 goog.require('ol.events.EventType');
 
+var lastSequenceNumber = 0;
 
 /**
  * @enum {number}
@@ -18,7 +19,6 @@ ol.TileState = {
   ABORT: 5
 };
 
-
 /**
  * @classdesc
  * Base class for tiles.
@@ -31,6 +31,8 @@ ol.TileState = {
 ol.Tile = function(tileCoord, state) {
 
   ol.events.EventTarget.call(this);
+
+  this.sequenceNumber = lastSequenceNumber++;
 
   /**
    * @type {ol.TileCoord}
@@ -58,9 +60,44 @@ ol.Tile = function(tileCoord, state) {
    * @type {string}
    */
   this.key = '';
-
 };
 ol.inherits(ol.Tile, ol.events.EventTarget);
+
+ol.Tile.prototype.stateString = function() {
+  switch (this.getState()) {
+    case ol.TileState.LOADING:
+      return 'LOADING';
+    case ol.TileState.LOADED:
+      return 'LOADED';
+    case ol.TileState.ERROR:
+      return 'ERROR';
+    case ol.TileState.IDLE:
+      return 'IDLE';
+    case ol.TileState.EMPTY:
+      return 'EMPTY';
+    default:
+      return 'N/A';
+  }
+};
+
+ol.Tile.prototype.interimCount = function() {
+  var tile = this;
+  var c = 0;
+  do {
+    ++c;
+    tile = tile.interimTile;
+  } while (tile);
+  return c;
+};
+
+ol.Tile.prototype.str = function() {
+   //goog.asserts.assert(this.interimCount() < 6);
+  var a = [this.getSequenceNumber(),this.getTileCoord().join('/'),this.stateString(),this.key];
+  if (this.interimTile) {
+    a = a.concat(this.interimTile.str());
+  }
+  return a;
+};
 
 
 /**
@@ -85,6 +122,14 @@ ol.Tile.prototype.getImage = function(opt_context) {};
  */
 ol.Tile.prototype.getKey = function() {
   return this.key + '/' + this.tileCoord;
+};
+
+/**
+ * The sequence number can be used as to order tiles by their request times. Later requests have a higher sequence number.
+ * @return {number} The sequence number.
+ */
+ol.Tile.prototype.getSequenceNumber = function() {
+  return this.sequenceNumber;
 };
 
 
