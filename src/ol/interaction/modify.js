@@ -621,33 +621,37 @@ ol.interaction.Modify.handleDragEvent_ = function(evt) {
     var segment = segmentData.segment;
     var index = dragSegment[1];
 
-    while (vertex.length < geometry.getStride()) {
-      vertex.push(0);
-    }
+    // copy only low-dimensional information so we do not
+    // overwrite any higher-dimensional data
+    var copyLowD = function(dst, src) {
+      for (var i = 0; i < src.length; i++) {
+        dst[i] = src[i];
+      }
+    };
 
     switch (geometry.getType()) {
       case ol.geom.GeometryType.POINT:
-        coordinates = vertex;
+        copyLowD(coordinates, vertex);
         segment[0] = segment[1] = vertex;
         break;
       case ol.geom.GeometryType.MULTI_POINT:
-        coordinates[segmentData.index] = vertex;
+        copyLowD(coordinates[segmentData.index], vertex);
         segment[0] = segment[1] = vertex;
         break;
       case ol.geom.GeometryType.LINE_STRING:
-        coordinates[segmentData.index + index] = vertex;
+        copyLowD(coordinates[segmentData.index + index], vertex);
         segment[index] = vertex;
         break;
       case ol.geom.GeometryType.MULTI_LINE_STRING:
-        coordinates[depth[0]][segmentData.index + index] = vertex;
+        copyLowD(coordinates[depth[0]][segmentData.index + index], vertex);
         segment[index] = vertex;
         break;
       case ol.geom.GeometryType.POLYGON:
-        coordinates[depth[0]][segmentData.index + index] = vertex;
+        copyLowD(coordinates[depth[0]][segmentData.index + index], vertex);
         segment[index] = vertex;
         break;
       case ol.geom.GeometryType.MULTI_POLYGON:
-        coordinates[depth[1]][depth[0]][segmentData.index + index] = vertex;
+        copyLowD(coordinates[depth[1]][depth[0]][segmentData.index + index], vertex);
         segment[index] = vertex;
         break;
       default:
@@ -809,7 +813,7 @@ ol.interaction.Modify.prototype.insertVertex_ = function(segmentData, vertex) {
   var coordinates;
 
   while (vertex.length < geometry.getStride()) {
-    vertex.push(0);
+    vertex.push(undefined);
   }
 
   switch (geometry.getType()) {
